@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Environment Variables
+.env
+
+# VS Code
+.vscode/
+
+# Project Data
+*.mp3
+*.log
+*.tmp
+
+# Mac
+.DS_Store
