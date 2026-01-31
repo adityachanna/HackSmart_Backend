@@ -6,7 +6,7 @@ import requests
 import json
 import os
 
-AI_AGENT_URL = "https://hacksmartagent26-698063521469.asia-south1.run.app/agent"
+AI_AGENT_URL = "https://hacksmart-698063521469.asia-south1.run.app/agent"
 
 def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
     """
@@ -86,13 +86,18 @@ def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
             ai_output = response.json()
             print("✅ AI Agent response received.")
             
+            # The response has structure: { "success": bool, "transcript_text": str, "analysis": {...}, "batch_size_used": int }
+            # Extract the actual analysis data
+            analysis_data = ai_output.get("analysis", {})
+            transcript_text = ai_output.get("transcript_text", "")
+            
             # 1. Update/Create CallInsight in Database
             from models import CallInsight
             
-            # Extract scores safely
-            scores = ai_output.get("scores", {})
-            insights = ai_output.get("insights", {})
-            metadata_res = ai_output.get("metadata", {})
+            # Extract scores safely from analysis object
+            scores = analysis_data.get("scores", {})
+            insights = analysis_data.get("insights", {})
+            metadata_res = analysis_data.get("metadata", {})
             
             # Check if insight already exists
             call_insight = db.query(CallInsight).filter(CallInsight.call_id == call_id).first()
@@ -100,13 +105,42 @@ def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
                 call_insight = CallInsight(call_id=call_id)
                 db.add(call_insight)
             
+            # Store transcript
+            call_insight.transcript = transcript_text
+            
+            # Helper functions to normalize scores to allowed DB values
+            def normalize_sentiment_score(score):
+                """Convert continuous score to discrete: 0, 0.5, or 1"""
+                if score < 0.25:
+                    return 0.0
+                elif score < 0.75:
+                    return 0.5
+                else:
+                    return 1.0
+            
+            def normalize_resolution_score(score):
+                """Convert continuous score to discrete: 0, 0.75, or 1"""
+                if score < 0.375:  # Closer to 0
+                    return 0.0
+                elif score < 0.875:  # Closer to 0.75
+                    return 0.75
+                else:
+                    return 1.0
+            
             # Maps fields from API response to DB model
             call_insight.sop_compliance_score = float(scores.get("sop_compliance", 0.0))
             
-            # Mapping specific fields
+            # Mapping specific fields with normalization where needed
             call_insight.communication_score = float(scores.get("communication", 0.0))
-            call_insight.sentiment_stabilization_score = float(scores.get("sentiment_stabilization", 0.0))
-            call_insight.resolution_validity_score = float(scores.get("resolution_validity", 0.0))
+            
+            # Normalize sentiment score to allowed values (0, 0.5, 1)
+            raw_sentiment = float(scores.get("sentiment_stabilization", 0.0))
+            call_insight.sentiment_stabilization_score = normalize_sentiment_score(raw_sentiment)
+            
+            # Normalize resolution score to allowed values (0, 0.75, 1)
+            raw_resolution = float(scores.get("resolution_validity", 0.0))
+            call_insight.resolution_validity_score = normalize_resolution_score(raw_resolution)
+            
             call_insight.overall_quality_score = float(scores.get("overall_quality", 0.0))
             call_insight.coaching_priority = float(scores.get("coaching_priority", 0.0))
             
@@ -114,11 +148,18 @@ def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
             esc_risk = float(scores.get("escalation_risk", 0.0))
             call_insight.escalation_risk = True if esc_risk > 0.5 else False
             
-            # JSONB fields
-            call_insight.issue_analysis = ai_output.get("issue_analysis", {})
-            call_insight.resolution_analysis = ai_output.get("resolution_analysis", {})
-            call_insight.sop_deviations = ai_output.get("sop_deviations", [])
-            call_insight.sentiment_trajectory = ai_output.get("sentiment_trajectory", [])
+            # IMPORTANT: Database constraint requires why_flagged to be NOT NULL if escalation_risk is TRUE
+            if call_insight.escalation_risk:
+                # Try to get why_flagged from insights or generate a default reason
+                call_insight.why_flagged = insights.get("why_flagged") or insights.get("business_insight") or "High escalation risk detected"
+            else:
+                call_insight.why_flagged = None
+            
+            # JSONB fields - extract from analysis object
+            call_insight.issue_analysis = analysis_data.get("issue_analysis", {})
+            call_insight.resolution_analysis = analysis_data.get("resolution_analysis", {})
+            call_insight.sop_deviations = analysis_data.get("sop_deviations", [])
+            call_insight.sentiment_trajectory = analysis_data.get("sentiment_trajectory", [])
             
             # Text fields
             call_insight.business_insight = insights.get("business_insight", "")
@@ -135,7 +176,7 @@ def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
                 "status": "success",
                 "message": "AI processing completed and saved to DB.",
                 "call_id": str(call_id),
-                "ai_output": ai_output
+                "ai_output": analysis_data  # Return just the analysis part for cleaner response
             }
             
         else:
