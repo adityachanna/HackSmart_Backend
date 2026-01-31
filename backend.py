@@ -17,6 +17,7 @@ from city_service import get_city_details_data, get_cities_list
 from call_processing_service import process_call_for_ai_evaluation, get_call_processing_status
 from insights import update_single_agent_insights
 from citylevel_insights import update_single_city_insights
+from escalation_monitor import get_escalatory_calls, get_escalatory_calls_with_score_filter, get_agent_worst_call_past_week
 
 load_dotenv()
 
@@ -360,25 +361,50 @@ async def ingest_call_endpoint(
             agent_manual_note=agent_manual_note
         )
         
-        # Trigger processing for AI evaluation
-        # Get a new db session for processing
+        # ============================================
+        # AUTOMATIC SERIAL PROCESSING
+        # ============================================
+        # Immediately process the call with AI agent (no manual trigger needed)
         db = SessionLocal()
+        processing_status = "pending"
+        ai_analysis = None
+        
         try:
+            print(f"🔄 Starting automatic AI processing for call {call_id}...")
             processing_result = process_call_for_ai_evaluation(db, str(call_id))
-            print(f"✅ Call processing initiated: {processing_result.get('message')}")
+            
+            if processing_result.get("status") == "success":
+                processing_status = "analyzed"
+                ai_analysis = {
+                    "message": "AI analysis completed successfully",
+                    "scores": processing_result.get("ai_output", {}).get("scores", {}),
+                    "escalation_flagged": processing_result.get("ai_output", {}).get("scores", {}).get("escalation_risk", 0) > 0.5
+                }
+                print(f"✅ AI analysis completed for call {call_id}")
+            else:
+                processing_status = "failed"
+                print(f"❌ AI processing failed: {processing_result.get('message')}")
+                
         except Exception as proc_error:
-            print(f"⚠️ Warning: Could not initiate processing: {proc_error}")
-            # Don't fail the ingestion if processing fails
+            import traceback
+            traceback.print_exc()
+            processing_status = "failed"
+            print(f"⚠️ Error during AI processing: {proc_error}")
+            # Don't fail the entire ingestion if AI processing fails
         finally:
             db.close()
         
         return {
             "status": "success",
-            "message": "Call ingested successfully and queued for processing",
+            "message": "Call ingested and processed successfully" if processing_status == "analyzed" else "Call ingested but AI processing failed",
             "call_id": str(call_id),
             "media_info": {
                 "filename": file.filename,
                 "duration_seconds": duration_seconds
+            },
+            "processing": {
+                "status": processing_status,
+                "ai_analysis": ai_analysis
             }
         }
 
@@ -441,6 +467,139 @@ async def get_call_status(call_id: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get call status: {str(e)}"
+        )
+
+# ============================================
+# FEATURE: Real-Time Escalation Monitoring
+# ============================================
+
+@app.get("/api/escalations/monitor")
+async def monitor_escalatory_calls(db: Session = Depends(get_db)):
+    """
+    Real-Time Escalation Monitor
+    
+    Returns all calls from the last 5 minutes that have been flagged for escalation
+    (escalation_risk = TRUE in database).
+    
+    Frontend can poll this endpoint for supervisor alerts.
+    
+    Response:
+    {
+      "status": "success",
+      "timestamp": "2026-02-01T03:36:00",
+      "time_window": "last_5_minutes",
+      "count": 2,
+      "flagged_calls": [
+        {
+          "call_id": "uuid",
+          "call_timestamp": "2026-02-01T03:34:00",
+          "audio_url": "https://...",
+          "agent": {...},
+          "scores": {...},
+          "sop_deviations": [...],
+          "analysis": {...}
+        }
+      ]
+    }
+    """
+    try:
+        return get_escalatory_calls(db)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch escalatory calls: {str(e)}"
+        )
+
+@app.get("/api/escalations/monitor/score")
+async def monitor_escalatory_calls_by_score(
+    min_score: float = 0.5, 
+    db: Session = Depends(get_db)
+):
+    """
+    Real-Time Escalation Monitor (Score-Based)
+    
+    Returns all calls from the last 5 minutes where coaching_priority > min_score.
+    
+    Query Parameters:
+    - min_score: Minimum coaching priority score to flag (default: 0.5)
+    
+    This is useful since the API returns escalation_risk as a numeric score,
+    but we store it as a boolean. Using coaching_priority allows filtering
+    by the actual escalation risk score.
+    
+    Response format is the same as /api/escalations/monitor
+    """
+    try:
+        if min_score < 0 or min_score > 1:
+            raise HTTPException(
+                status_code=400, 
+                detail="min_score must be between 0 and 1"
+            )
+        return get_escalatory_calls_with_score_filter(db, min_score)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch escalatory calls: {str(e)}"
+        )
+
+@app.get("/api/agents/{agent_id}/worst-call")
+async def get_agent_worst_call(agent_id: str, db: Session = Depends(get_db)):
+    """
+    Get Agent's Worst Call from Past Week
+    
+    Returns the call with the highest coaching_priority (escalation risk) score
+    for a specific agent from the past 7 days.
+    
+    Useful for:
+    - Performance reviews
+    - Identifying coaching opportunities
+    - Understanding agent's most challenging interactions
+    
+    Response:
+    {
+      "status": "success",
+      "timestamp": "2026-02-01T03:38:00",
+      "time_window": "last_7_days",
+      "agent_id": "uuid",
+      "worst_call": {
+        "call_id": "uuid",
+        "call_timestamp": "2026-01-28T10:30:00",
+        "audio_url": "https://...",
+        "agent": {...},
+        "scores": {
+          "coaching_priority": 0.95,
+          ...
+        },
+        "sop_deviations": [...],
+        "analysis": {...}
+      }
+    }
+    """
+    try:
+        result = get_agent_worst_call_past_week(db, agent_id)
+        
+        # If no calls found for agent, return 404
+        if result.get("worst_call") is None:
+            raise HTTPException(
+                status_code=404, 
+                detail=result.get("message", "No calls found for this agent")
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch worst call: {str(e)}"
         )
 
 

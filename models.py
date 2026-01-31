@@ -31,7 +31,7 @@ class Agent(Base):
     
     # CURRENT METRICS (0–1)
     current_quality_score = Column(DECIMAL(5, 4), default=0.0)
-    current_sop_state_compliance_score = Column(DECIMAL(5, 4), default=0.0)
+    current_sop_compliance_score = Column(DECIMAL(5, 4), default=0.0)
     current_sentiment_stabilization_score = Column(DECIMAL(5, 4), default=0.0)
     current_escalation_rate = Column(DECIMAL(5, 4), default=0.0)
     
@@ -44,7 +44,7 @@ class Agent(Base):
     
     # PREVIOUS MONTH SNAPSHOT
     prev_month_quality_score = Column(DECIMAL(5, 4))
-    prev_month_sop_state_compliance_score = Column(DECIMAL(5, 4))
+    prev_month_sop_compliance_score = Column(DECIMAL(5, 4))
     prev_month_sentiment_stabilization_score = Column(DECIMAL(5, 4))
     prev_month_escalation_rate = Column(DECIMAL(5, 4))
     prev_month_calls_handled = Column(Integer)
@@ -119,13 +119,13 @@ class CallInsight(Base):
     language_spoken = Column(String(50))
     
     # CORE SCORES (0–1)
-    sop_state_compliance_score = Column(DECIMAL(5, 4), nullable=False)
-    conversation_control_score = Column(DECIMAL(5, 4), nullable=False)
+    sop_compliance_score = Column(DECIMAL(5, 4), nullable=False)
+    # conversation_control_score Removed
     sentiment_stabilization_score = Column(DECIMAL(3, 2), nullable=False)
-    resolution_path_validity_score = Column(DECIMAL(3, 2), nullable=False)
+    resolution_validity_score = Column(DECIMAL(3, 2), nullable=False)
     
     # DERIVED CALL QUALITY
-    overall_call_quality_score = Column(DECIMAL(5, 4), nullable=False)
+    overall_quality_score = Column(DECIMAL(5, 4), nullable=False)
     
     # ESCALATION SIGNAL
     escalation_risk = Column(Boolean, nullable=False)
@@ -138,14 +138,23 @@ class CallInsight(Base):
     business_insight = Column(Text)
     coaching_insight = Column(Text)
     
+    # NEW FIELDS for AI Analysis
+    communication_score = Column(DECIMAL(5, 4))
+    coaching_priority = Column(DECIMAL(5, 4))
+    
+    # JSONB columns for structured analysis
+    issue_analysis = Column(JSONB)
+    resolution_analysis = Column(JSONB)
+    sop_deviations = Column(JSONB)
+    sentiment_trajectory = Column(JSONB)
+    
     created_at = Column(TIMESTAMP, default=datetime.now)
     
     __table_args__ = (
-        CheckConstraint("sop_state_compliance_score BETWEEN 0 AND 1", name='check_sop_score'),
-        CheckConstraint("conversation_control_score BETWEEN 0 AND 1", name='check_conversation_score'),
+        CheckConstraint("sop_compliance_score BETWEEN 0 AND 1", name='check_sop_score'),
         CheckConstraint("sentiment_stabilization_score IN (0, 0.5, 1)", name='check_sentiment_score'),
-        CheckConstraint("resolution_path_validity_score IN (0, 0.75, 1)", name='check_resolution_score'),
-        CheckConstraint("overall_call_quality_score BETWEEN 0 AND 1", name='check_quality_score'),
+        CheckConstraint("resolution_validity_score IN (0, 0.75, 1)", name='check_resolution_score'),
+        CheckConstraint("overall_quality_score BETWEEN 0 AND 1", name='check_quality_score'),
         CheckConstraint(
             "escalation_risk = FALSE OR (escalation_risk = TRUE AND why_flagged IS NOT NULL)",
             name='check_escalation_flag'
@@ -162,8 +171,9 @@ class CityInsight(Base):
     city_id = Column(Integer, ForeignKey('cities.id', ondelete='CASCADE'), primary_key=True)
     
     # AGGREGATED METRICS (0–1)
+    # AGGREGATED METRICS (0–1)
     avg_quality_score = Column(DECIMAL(5, 4))
-    avg_sop_state_compliance_score = Column(DECIMAL(5, 4))
+    avg_sop_compliance_score = Column(DECIMAL(5, 4))
     avg_sentiment_stabilization_score = Column(DECIMAL(5, 4))
     avg_escalation_rate = Column(DECIMAL(5, 4))
     
@@ -180,7 +190,7 @@ class CityInsight(Base):
     
     # PREVIOUS MONTH SNAPSHOT
     prev_month_avg_quality_score = Column(DECIMAL(5, 4))
-    prev_month_avg_sop_state_compliance_score = Column(DECIMAL(5, 4))
+    prev_month_avg_sop_compliance_score = Column(DECIMAL(5, 4))
     prev_month_avg_sentiment_stabilization_score = Column(DECIMAL(5, 4))
     prev_month_avg_escalation_rate = Column(DECIMAL(5, 4))
     

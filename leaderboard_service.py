@@ -90,9 +90,9 @@ def get_agent_details_data(db: Session, agent_id: str) -> Dict[str, Any]:
     # 2. SOP Compliance Trend
     trend_data.append({
         "metric": "sop_compliance",
-        "trend": get_trend(agent.current_sop_state_compliance_score, agent.prev_month_sop_state_compliance_score),
-        "value": to_float(agent.current_sop_state_compliance_score),
-        "prev_value": to_float(agent.prev_month_sop_state_compliance_score)
+        "trend": get_trend(agent.current_sop_compliance_score, agent.prev_month_sop_compliance_score),
+        "value": to_float(agent.current_sop_compliance_score),
+        "prev_value": to_float(agent.prev_month_sop_compliance_score)
     })
     
     # 3. Sentiment Trend
@@ -120,23 +120,33 @@ def get_agent_details_data(db: Session, agent_id: str) -> Dict[str, Any]:
         },
         "current_stats": {
             "quality_score": to_float(agent.current_quality_score),
-            "sop_compliance": to_float(agent.current_sop_state_compliance_score),
+            "sop_compliance": to_float(agent.current_sop_compliance_score),
             "sentiment_stabilization": to_float(agent.current_sentiment_stabilization_score),
             "escalation_rate": to_float(agent.current_escalation_rate),
             "calls_handled_today": agent.calls_handled_today or 0,
-            "emergencies_today": agent.emergencies_today or 0
+            "emergencies_today": agent.emergencies_today or 0,
+            "calls_handled_total": agent.calls_handled_total or 0,
+            "total_emergencies_count": agent.total_emergencies_count or 0
         },
-        "history_comparison": {
-            "prev_month_quality": to_float(agent.prev_month_quality_score),
-            "prev_month_sop": to_float(agent.prev_month_sop_state_compliance_score),
-            "prev_month_sentiment": to_float(agent.prev_month_sentiment_stabilization_score),
-            "prev_month_escalation": to_float(agent.prev_month_escalation_rate)
+        "previous_month_stats": {
+            "quality_score": to_float(agent.prev_month_quality_score),
+            "sop_compliance": to_float(agent.prev_month_sop_compliance_score),
+            "sentiment_stabilization": to_float(agent.prev_month_sentiment_stabilization_score),
+            "escalation_rate": to_float(agent.prev_month_escalation_rate),
+            "calls_handled": agent.prev_month_calls_handled or 0,
+            "emergencies": agent.prev_month_emergencies or 0
         },
         "trend_data": trend_data,
         "llm_insights": {
             "latest_month_insight": agent.latest_month_insight,
             "overall_insight_text": agent.overall_insight_text,
             "latest_change_summary": agent.latest_change_summary
+        },
+        "insight_metadata": {
+            "insight_history": agent.insight_history if agent.insight_history else [],
+            "recent_trend_array": agent.recent_trend_array if agent.recent_trend_array else [],
+            "last_insight_generated_at": agent.last_insight_generated_at.isoformat() if agent.last_insight_generated_at else None,
+            "last_updated_at": agent.last_updated_at.isoformat() if agent.last_updated_at else None
         }
     }
 

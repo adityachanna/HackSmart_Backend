@@ -36,7 +36,7 @@ def get_india_map_dashboard_data(db: Session) -> Dict[str, Any]:
         City.id,
         City.name,
         City.state,
-        CityInsight.avg_sop_state_compliance_score,
+        CityInsight.avg_sop_compliance_score,
         CityInsight.total_calls
     ).outerjoin(
         CityInsight, City.id == CityInsight.city_id

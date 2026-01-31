@@ -86,13 +86,13 @@ def get_city_details_data(db: Session, city_id: int) -> Dict[str, Any]:
         },
         "metrics": {
             "avg_quality_score": to_float(insight.avg_quality_score),
-            "avg_sop_compliance": to_float(insight.avg_sop_state_compliance_score),
+            "avg_sop_compliance": to_float(insight.avg_sop_compliance_score),
             "avg_sentiment_score": to_float(insight.avg_sentiment_stabilization_score),
             "avg_escalation_rate": to_float(insight.avg_escalation_rate),
             
             # Comparison Data
             "prev_month_quality": to_float(insight.prev_month_avg_quality_score),
-            "prev_month_sop": to_float(insight.prev_month_avg_sop_state_compliance_score),
+            "prev_month_sop": to_float(insight.prev_month_avg_sop_compliance_score),
             "prev_month_sentiment": to_float(insight.prev_month_avg_sentiment_stabilization_score),
             "prev_month_escalation": to_float(insight.prev_month_avg_escalation_rate),
             

@@ -13,7 +13,7 @@ CREATE TABLE agents (
 
     -- CURRENT METRICS (0–1)
     current_quality_score DECIMAL(5,4) DEFAULT 0.0,
-    current_sop_state_compliance_score DECIMAL(5,4) DEFAULT 0.0,
+    current_sop_compliance_score DECIMAL(5,4) DEFAULT 0.0,
     current_sentiment_stabilization_score DECIMAL(5,4) DEFAULT 0.0,
     current_escalation_rate DECIMAL(5,4) DEFAULT 0.0,
 
@@ -26,7 +26,7 @@ CREATE TABLE agents (
 
     -- PREVIOUS MONTH SNAPSHOT
     prev_month_quality_score DECIMAL(5,4),
-    prev_month_sop_state_compliance_score DECIMAL(5,4),
+    prev_month_sop_compliance_score DECIMAL(5,4),
     prev_month_sentiment_stabilization_score DECIMAL(5,4),
     prev_month_escalation_rate DECIMAL(5,4),
     prev_month_calls_handled INT,
@@ -139,39 +139,21 @@ CREATE TABLE call_insights (
 
     -- =========================
 
-    sop_state_compliance_score DECIMAL(5,4) NOT NULL
-
-        CHECK (sop_state_compliance_score BETWEEN 0 AND 1),
-
-
-
-    conversation_control_score DECIMAL(5,4) NOT NULL
-
-        CHECK (conversation_control_score BETWEEN 0 AND 1),
-
-
+    sop_compliance_score DECIMAL(5,4) NOT NULL
+        CHECK (sop_compliance_score BETWEEN 0 AND 1),
 
     sentiment_stabilization_score DECIMAL(3,2) NOT NULL
-
         CHECK (sentiment_stabilization_score IN (0, 0.5, 1)),
 
-
-
-    resolution_path_validity_score DECIMAL(3,2) NOT NULL
-
-        CHECK (resolution_path_validity_score IN (0, 0.75, 1)),
-
-
+    resolution_validity_score DECIMAL(3,2) NOT NULL
+        CHECK (resolution_validity_score IN (0, 0.75, 1)),
 
     -- =========================
-
     -- DERIVED CALL QUALITY
-
     -- =========================
 
-    overall_call_quality_score DECIMAL(5,4) NOT NULL
-
-        CHECK (overall_call_quality_score BETWEEN 0 AND 1),
+    overall_quality_score DECIMAL(5,4) NOT NULL
+        CHECK (overall_quality_score BETWEEN 0 AND 1),
 
 
 
@@ -210,8 +192,16 @@ CREATE TABLE call_insights (
     -- =========================
 
     business_insight TEXT,
-
     coaching_insight TEXT,
+
+    -- NEW FIELDS from AI Analysis
+    communication_score DECIMAL(5,4),
+    coaching_priority DECIMAL(5,4),
+
+    issue_analysis JSONB,
+    resolution_analysis JSONB,
+    sop_deviations JSONB,
+    sentiment_trajectory JSONB,
 
 
 
@@ -244,9 +234,7 @@ CREATE TABLE city_insights (
     -- AGGREGATED METRICS (0–1)
 
     avg_quality_score DECIMAL(5,4),
-
-    avg_sop_state_compliance_score DECIMAL(5,4),
-
+    avg_sop_compliance_score DECIMAL(5,4),
     avg_sentiment_stabilization_score DECIMAL(5,4),
 
     avg_escalation_rate DECIMAL(5,4),
@@ -278,9 +266,7 @@ CREATE TABLE city_insights (
     -- PREVIOUS MONTH SNAPSHOT
 
     prev_month_avg_quality_score DECIMAL(5,4),
-
-    prev_month_avg_sop_state_compliance_score DECIMAL(5,4),
-
+    prev_month_avg_sop_compliance_score DECIMAL(5,4),
     prev_month_avg_sentiment_stabilization_score DECIMAL(5,4),
 
     prev_month_avg_escalation_rate DECIMAL(5,4),
