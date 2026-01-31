@@ -15,6 +15,8 @@ from dashboard_service import get_india_map_dashboard_data
 from leaderboard_service import get_agent_leaderboard_data, get_agent_details_data, search_agents
 from city_service import get_city_details_data, get_cities_list
 from call_processing_service import process_call_for_ai_evaluation, get_call_processing_status
+from insights import update_single_agent_insights
+from citylevel_insights import update_single_city_insights
 
 load_dotenv()
 
@@ -186,6 +188,26 @@ async def get_agent_stats(agent_id: str, db: Session = Depends(get_db)):
             detail=f"Failed to fetch agent stats: {str(e)}"
         )
 
+@app.post("/api/agents/{agent_id}/generate-insights")
+async def generate_agent_insights(agent_id: str, db: Session = Depends(get_db)):
+    """
+    Triggers the LLM insight generation for a specific agent.
+    
+    Updates the agent's monthly and overall insights in the database
+    based on the call logs for the current month.
+    """
+    try:
+        result = update_single_agent_insights(db, agent_id)
+        if result.get("status") == "error":
+             raise HTTPException(status_code=404, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
+
 # ============================================
 # FEATURE 3: City Wise Details
 # ============================================
@@ -252,6 +274,29 @@ async def get_city_details(city_id: int, db: Session = Depends(get_db)):
             detail=f"Failed to fetch city details: {str(e)}"
         )
 
+@app.post("/api/cities/{city_id}/generate-insights")
+async def generate_city_insights(city_id: int, db: Session = Depends(get_db)):
+    """
+    Triggers the LLM insight generation for a specific city.
+    
+    Generates:
+    - Daily Ops Insight (from business insights of today's calls)
+    - Latest Month Insight (from business insights of last 30 days)
+    - Overall City Insight (updated with monthly findings)
+    - Coaching Focus for City (aggregated from coaching insights)
+    """
+    try:
+        result = update_single_city_insights(db, city_id)
+        if result.get("status") == "error":
+             raise HTTPException(status_code=404, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate city insights: {str(e)}")
+
 # ============================================
 # Call Ingestion Endpoint
 # ============================================
@@ -265,6 +310,7 @@ async def ingest_call_endpoint(
     city_identifier: str = Form(..., description="City Name or ID (1-6)"),
     customer_name: Optional[str] = Form(None),
     customer_phone: Optional[str] = Form(None),
+    customer_preferred_language: Optional[str] = Form(None),
     call_context: Optional[str] = Form(None),
     agent_manual_note: Optional[str] = Form(None)
 ):
@@ -308,6 +354,7 @@ async def ingest_call_endpoint(
             city_identifier=city_identifier,
             customer_name=customer_name,
             customer_phone=customer_phone,
+            customer_preferred_language=customer_preferred_language,
             call_context=call_context,
             duration_seconds=duration_seconds, # Pass the calculated duration
             agent_manual_note=agent_manual_note
@@ -399,4 +446,4 @@ async def get_call_status(call_id: str, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend:app", host="0.0.0.0", port=8080, reload=True)

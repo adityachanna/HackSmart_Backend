@@ -273,6 +273,7 @@ def ingest_call(
     mp3_base64=None,
     customer_name=None,
     customer_phone=None,
+    customer_preferred_language=None,
     call_context=None,
     duration_seconds=None,
     agent_manual_note=None
@@ -289,6 +290,7 @@ def ingest_call(
     OPTIONAL PARAMETERS (will be generated randomly if not provided):
     - customer_name: Customer name (str)
     - customer_phone: Customer phone number (str)
+    - customer_preferred_language: JSON string or simple string (str)
     - call_context: One of CALL_CONTEXTS (str)
     - duration_seconds: Call duration in seconds (int)
     - agent_manual_note: Agent's manual notes (str)
@@ -360,11 +362,11 @@ def ingest_call(
         
         insert_call_sql = text("""
             INSERT INTO calls (
-                id, agent_id, city_id, customer_phone, customer_name,
+                id, agent_id, city_id, customer_phone, customer_name, customer_preferred_language,
                 audio_url, duration_seconds, call_timestamp, call_context, 
                 primary_issue_category, agent_manual_note, processing_status
             ) VALUES (
-                :id, :agent_id, :city_id, :phone, :name,
+                :id, :agent_id, :city_id, :phone, :name, :pref_lang,
                 :url, :duration, :timestamp, :context, 
                 :issue, :note, 'pending'
             )
@@ -376,6 +378,7 @@ def ingest_call(
             "city_id": city_id,
             "phone": customer_phone,
             "name": customer_name,
+            "pref_lang": customer_preferred_language,
             "url": audio_url,
             "duration": duration_seconds,
             "timestamp": datetime.now(),
@@ -440,6 +443,7 @@ Available Cities: {', '.join([f"{cid}={info['name']}" for cid, info in CITIES_MA
     # Optional arguments
     parser.add_argument("--customer-name", help="Customer name (random if not provided)")
     parser.add_argument("--customer-phone", help="Customer phone (random if not provided)")
+    parser.add_argument("--lang", help="Customer preferred language")
     parser.add_argument("--context", choices=CALL_CONTEXTS, help="Call context")
     parser.add_argument("--duration", type=int, help="Duration in seconds")
     parser.add_argument("--note", help="Agent's manual note")
@@ -454,6 +458,7 @@ Available Cities: {', '.join([f"{cid}={info['name']}" for cid, info in CITIES_MA
         mp3_base64=args.mp3_base64,
         customer_name=args.customer_name,
         customer_phone=args.customer_phone,
+        customer_preferred_language=args.lang,
         call_context=args.context,
         duration_seconds=args.duration,
         agent_manual_note=args.note

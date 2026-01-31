@@ -36,12 +36,16 @@ CREATE TABLE agents (
     latest_month_insight TEXT,
     overall_insight_text TEXT,
     latest_change_summary TEXT,
-    daily_agent_insight TEXT,
+
 
     -- MEMORY / TRENDS
     insight_history JSONB DEFAULT '[]'::jsonb,
     recent_trend_array JSONB DEFAULT '[]'::jsonb,
 
+    insight_history JSONB DEFAULT '[]'::jsonb,
+    recent_trend_array JSONB DEFAULT '[]'::jsonb,
+
+    last_insight_generated_at TIMESTAMP,
     last_updated_at TIMESTAMP DEFAULT NOW()
 );
  CREATE TABLE calls (
@@ -56,9 +60,12 @@ CREATE TABLE agents (
 
 
 
+
     customer_phone VARCHAR(20),
 
     customer_name VARCHAR(100),
+
+    customer_preferred_language VARCHAR(50),
 
 
 
@@ -297,9 +304,8 @@ CREATE TABLE city_insights (
     key_operational_risks TEXT[],
 
     insight_history JSONB DEFAULT '[]'::jsonb,
-
-
-
+    
+    last_insight_generated_at TIMESTAMP,
     last_updated_at TIMESTAMP DEFAULT NOW()
 
 );

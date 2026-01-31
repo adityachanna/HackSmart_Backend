@@ -136,8 +136,7 @@ def get_agent_details_data(db: Session, agent_id: str) -> Dict[str, Any]:
         "llm_insights": {
             "latest_month_insight": agent.latest_month_insight,
             "overall_insight_text": agent.overall_insight_text,
-            "latest_change_summary": agent.latest_change_summary,
-            "daily_agent_insight": agent.daily_agent_insight
+            "latest_change_summary": agent.latest_change_summary
         }
     }
 

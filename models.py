@@ -54,12 +54,15 @@ class Agent(Base):
     latest_month_insight = Column(Text)
     overall_insight_text = Column(Text)
     latest_change_summary = Column(Text)
-    daily_agent_insight = Column(Text)
+
     
     # MEMORY / TRENDS
     insight_history = Column(JSONB, default=list)
     recent_trend_array = Column(JSONB, default=list)
     
+
+    
+    last_insight_generated_at = Column(TIMESTAMP)
     last_updated_at = Column(TIMESTAMP, default=datetime.now)
     
     # Relationships
@@ -76,6 +79,7 @@ class Call(Base):
     
     customer_phone = Column(String(20))
     customer_name = Column(String(100))
+    customer_preferred_language = Column(String(50))
     
     audio_url = Column(Text, nullable=False)
     duration_seconds = Column(Integer)
@@ -190,6 +194,9 @@ class CityInsight(Base):
     key_operational_risks = Column(ARRAY(Text))
     insight_history = Column(JSONB, default=list)
     
+
+
+    last_insight_generated_at = Column(TIMESTAMP)
     last_updated_at = Column(TIMESTAMP, default=datetime.now)
     
     # Relationships

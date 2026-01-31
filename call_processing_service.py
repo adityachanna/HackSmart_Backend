@@ -47,6 +47,7 @@ def process_call_for_ai_evaluation(db: Session, call_id: str) -> Dict[str, Any]:
         "call_timestamp": call.call_timestamp.isoformat() if call.call_timestamp else None,
         "call_context": call.call_context,
         "agent_manual_note": call.agent_manual_note,
+        "customer_preferred_language": call.customer_preferred_language,
         "audio_url": call.audio_url,  # AWS S3 URL
         "city_id": call.city_id
     }
