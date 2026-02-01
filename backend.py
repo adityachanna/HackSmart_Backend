@@ -18,6 +18,8 @@ from call_processing_service import process_call_for_ai_evaluation, get_call_pro
 from insights import update_single_agent_insights
 from citylevel_insights import update_single_city_insights
 from escalation_monitor import get_escalatory_calls, get_escalatory_calls_with_score_filter, get_agent_worst_call_past_week
+from fastapi.middleware.cors import CORSMiddleware
+
 
 load_dotenv()
 
@@ -25,6 +27,16 @@ load_dotenv()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(title="HackSmart Call Ingestion API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://main.dhyv15pdosjd2.amplifyapp.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency to get database session
 def get_db():
