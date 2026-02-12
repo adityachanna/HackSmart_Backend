@@ -31,9 +31,9 @@ app = FastAPI(title="HackSmart Call Ingestion API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://main.dhyv15pdosjd2.amplifyapp.com"
+       "*"
     ],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
